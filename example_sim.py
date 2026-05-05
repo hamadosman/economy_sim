@@ -4,7 +4,8 @@ import main
 import torch
 from model import PPO
 from torch.distributions import Bernoulli, Normal
-
+from main import Economy
+from main import SimulationResult
 
 class RealAgent(main.Agent):
 
@@ -16,19 +17,22 @@ class RealAgent(main.Agent):
         resource_names: frozenset[str],
         production_costs: dict[str,float],
         min_requirement: float,
-        cost_of_living: float
+        cost_of_living: float,
+        avg_price_per_resource: dict[str, float],
+        volume_traded_per_resource: dict[str, int],
+        prev_net_worth: float
     ):
         super().__init__(agent_id, inventory, balance, production_costs, cost_of_living)
         self._resource_list = sorted(resource_names)
-        self._last_avg_prices: dict[str, float] = {}
-        self.last_volume_traded_per_resource: dict[str, int] = {}
+        self._last_avg_prices: dict[str, float] = avg_price_per_resource
+        self.last_volume_traded_per_resource: dict[str, int] = volume_traded_per_resource
         self.model = PPO(len(resource_names))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr = 0.0003)
         self.curr_penalty = 0
         self.curr_reward = 0
         self.alive = True
         self.min_requirement = min_requirement
-        self.prev_net_worth = 0
+        self.prev_net_worth = prev_net_worth
 
         self.buffer = {}
         self.buffer["obs"] = []
@@ -84,6 +88,10 @@ class RealAgent(main.Agent):
                     self.curr_penalty += int(qtys[i].item()) * self.production_costs[self._resource_list[i]] - self.balance
                     continue
                 produces[self._resource_list[i]] = int(qtys[i].item())
+
+        for resource in produces:
+            self.inventory[resource] += produces[resource]
+            self.balance -= produces[resource] * self.production_costs[resource]
         return produces
 
 
@@ -245,27 +253,86 @@ class RealAgent(main.Agent):
 
         for k in self.buffer:
             self.buffer[k].clear()
+    
+    def reset(self, balance, inventory, avg_price_per_resource, volume_traded_per_resource, prev_net_worth):
+        self.alive = True
+        self.curr_reward = 0
+        self.curr_penalty = 0
+        self.prev_net_worth = prev_net_worth
 
+        self.balance = balance
+        self.inventory = inventory
+        self._last_avg_prices = avg_price_per_resource
+        self.last_volume_traded_per_resource = volume_traded_per_resource
+    
 
-
-
-def make_economy():
-    n_agents = 10
-    n_resources = 7
-    setup_seed = 42  # must seed setup too, or every run starts from different RNG state
-    setup_rng = random.Random(setup_seed)
-    resource_types = {f"resource_{j}" for j in range(n_resources)}
+def build_agents(n_agents, n_resources, resource_types):
     names = frozenset(resource_types)
 
-    agents = []
+    resources_list = sorted(resource_types)  # deterministic order
+    production_costs_per_agent = {}
+    starting_inventory = {r: 10 for r in resources_list}
+    balances = {}
     inventories = {}
+    cost_of_living = 10.0
+    min_requirement = 100.0
+    net_worth = 1000.0 + 10*50.0*n_agents
     for i in range(n_agents):
         agent_id = chr(ord("A") + i)
-        inventory = {f"resource_{j}": setup_rng.randint(0, 20) for j in range(n_resources)}
-        balance = setup_rng.random() * 500
-        inventories[agent_id] = inventory
-        agents.append(RandomAgent(agent_id, inventory, balance, names))
+        cheap_resource = resources_list[i % len(resources_list)]
+        costs = {}
+        for r in resources_list:
+            if r == cheap_resource:
+                costs[r] = 1.0   # cheap
+            else:
+                costs[r] = 5.0   # average
+        production_costs_per_agent[agent_id] = costs
+        inventories[agent_id] = dict(starting_inventory)
+        balances[agent_id] = 1000.0
+    initial_prices = {r: 50.0 for r in resources_list}
+    initial_volumes = {r: 0 for r in resources_list}
 
-    return main.Economy(agents, resource_types, inventories, tick_count=100, seed=42)
+    agents = []
+    for i in range(n_agents):
+        agent_id = chr(ord("A") + i)
+        balance = 1000.0
+        agents.append(RealAgent(
+            agent_id,
+            inventories[agent_id],
+            balance,
+            names,
+            production_costs_per_agent[agent_id],
+            min_requirement,
+            cost_of_living,
+            initial_prices,
+            initial_volumes,
+            prev_net_worth=net_worth
+        ))
+    return inventories, balances, agents
+
+def reset_agents(agents, balances, inventories, avg_price_per_resource, volume_traded_per_resource, prev_net_worth):
+    for agent in agents:
+        agent.reset(balances[agent.id], inventories[agent.id], avg_price_per_resource, volume_traded_per_resource, prev_net_worth)
 
 
+async def train_loop():
+    n_epochs = 100
+    n_agents = 5
+    n_resources = 5
+    resource_types = {"gold", "silver", "wood", "coal", "oil"}
+    resources_list = sorted(list(resource_types))  # deterministic order
+    inventories, balances, agents = build_agents(n_agents, n_resources, resource_types)
+    initial_prices = {r: 50.0 for r in resources_list}
+    initial_volumes = {r: 0 for r in resources_list}
+    net_worth = 1000.0 + 10*50.0*n_agents
+    for _ in range(n_epochs):
+        reset_agents(agents, balances, inventories, initial_prices, initial_volumes, net_worth)
+        economy = Economy(agents, resource_types, tick_count=100, seed=42, cost_of_living=10.0, avg_price_per_resource=initial_prices, volume_traded_per_resource=initial_volumes)
+        result = await economy.run()
+        print(result.inventories)
+        print(result.balances)
+        await asyncio.gather(*[agent.train() for agent in agents])
+
+if __name__ == "__main__":
+    asyncio.run(train_loop())
+    

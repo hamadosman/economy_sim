@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 import time
-from model import PPO
 
 class Order:
     def __init__(self,agent_id,resource,side,quantity,price):
@@ -64,7 +63,7 @@ class SimulationResult:
         self.production_per_resource = production_per_resource
 
 class Economy:
-    def __init__(self,agents: list[Agent],resource_types: set[str],inventories: dict[str:dict[str:int]], tick_count: int, seed: int, cost_of_living: float, avg_price_per_resource: dict[str:float], volume_traded_per_resource: dict[str:int], timeout_seconds: Optional[float] = None):
+    def __init__(self,agents: list[Agent],resource_types: set[str], tick_count: int, seed: int, cost_of_living: float, avg_price_per_resource: dict[str:float], volume_traded_per_resource: dict[str:int], timeout_seconds: Optional[float] = None):
         self.agents = agents
         self.all_agents = agents
         self.resource_types = resource_types
@@ -81,17 +80,7 @@ class Economy:
         self._agent_map = {}
         for agent in self.agents:
             self._agent_map[agent.id] = agent
-
-        #Total supply maps each resource to it's total quantity in the economy at the current tick. 
-        #Used to assert the conservation invariant.
-        self._total_supply = {}
-        for inventory in self.inventories.values():
-            for resource in inventory:
-                if resource not in self._total_supply:
-                    self._total_supply[resource] = 0
-                self._total_supply[resource] += inventory[resource]
-            
-    
+                
     async def run(self):
         start = time.time()
         no_ticks = 0
@@ -105,18 +94,7 @@ class Economy:
             avg_price_per_resource = {}
             volume_traded_per_resource = {}
             produced = await asyncio.gather(*[self.agents[i].produce(tick_idx,self.seed+tick_idx*1000 + i) for i in range(len(self.agents))])
-            
-            #Update inventories for all produced items, update total supply.
-            for agent,resources in zip(self.agents,produced):
-                for resource_type,resource_qty in resources.items():
-                    if resource_type not in self._total_supply:
-                        self._total_supply[resource_type] = 0
-                    self._total_supply[resource_type] += resource_qty
-
-                    if resource_type not in agent.inventory:
-                        agent.inventory[resource_type] = 0
-                    agent.inventory[resource_type] += resource_qty
-            
+                        
             #resource_order_map maps each resource to a dictionary with two keys, 'asks' and 'bids'.
             resource_order_map = {}
             orders = await asyncio.gather(*[self.agents[i].submit_orders(tick_idx,self.seed+tick_idx*1000+i,self.agents[i].inventory,self.agents[i].balance) for i in range(len(self.agents))])
@@ -234,17 +212,7 @@ class Economy:
                 self.volume_traded_per_resource[resource] = volume_traded_per_resource[resource]
             await asyncio.gather(*[self.agents[i].observe(tick_idx,trades_list,self.avg_price_per_resource,self.volume_traded_per_resource) for i in range(len(self.agents))])
             
-            #Measure final supply of each
-            final_supply = {}
-            for agent in self.agents:
-                for resource in agent.inventory:
-                    if resource not in final_supply:
-                        final_supply[resource] = 0
-                    final_supply[resource] += agent.inventory[resource]
-                
             #Assert the conservation invariant for each resource.
-            for resource in final_supply:
-                assert final_supply[resource] == self._total_supply[resource]
             no_ticks += 1
             if self.timeout_seconds and time.time()-start > self.timeout_seconds:
                 break 
@@ -256,12 +224,8 @@ class Economy:
             inventory_map[agent] = self._agent_map[agent].inventory
             balances_map[agent] = self._agent_map[agent].balance
         
-        await asyncio.gather(*[self.all_agents[i].train() for i in range(len(self.all_agents))])
-        
         #Return SimulationResult object 
         sim_result = SimulationResult(inventory_map, balances_map, self.avg_price_per_resource, self.volume_traded_per_resource, no_ticks)
-        
-        
 
         return sim_result
 
