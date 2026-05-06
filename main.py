@@ -67,7 +67,6 @@ class Economy:
         self.agents = agents
         self.all_agents = agents
         self.resource_types = resource_types
-        self.inventories = inventories
         self.tick_count = tick_count
         self.seed = seed 
         self.timeout_seconds = timeout_seconds

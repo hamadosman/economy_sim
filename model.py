@@ -11,7 +11,7 @@ class PPO(nn.Module):
         super().__init__()
         self.n = n_resources
         self.base = nn.Sequential(
-            nn.Linear(4*self.n+2,64),
+            nn.Linear(3*self.n+2,64),
             nn.ReLU(),
             nn.Linear(64,64),
             nn.ReLU(),

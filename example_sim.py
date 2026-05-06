@@ -6,6 +6,7 @@ from model import PPO
 from torch.distributions import Bernoulli, Normal
 from main import Economy
 from main import SimulationResult
+import math
 
 class RealAgent(main.Agent):
 
@@ -44,16 +45,20 @@ class RealAgent(main.Agent):
         self.buffer["values"] = []
         self.buffer["dones"] = []
     
+    
     #Produce a random amount of a random resource for the current tick.
     async def produce(self, tick_idx, seed: int) -> dict[str, int]:
 
+        def squash(x, scale=100):
+            return math.tanh(x / scale)
+
         curr_state = []
         for resource in self._resource_list:
-            curr_state.append(self.inventory.get(resource,0))
-            curr_state.append(self.last_volume_traded_per_resource.get(resource,0))
-            curr_state.append(self._last_avg_prices.get(resource,0))
-        curr_state.append(self.balance)
-        curr_state.append(self.cost_of_living)
+            curr_state.append(squash(self.inventory.get(resource,0)))
+            curr_state.append(squash(self.last_volume_traded_per_resource.get(resource,0)))
+            curr_state.append(squash(self._last_avg_prices.get(resource,0)))
+        curr_state.append(squash(self.balance))
+        curr_state.append(squash(self.cost_of_living))
 
         curr_state = torch.tensor(curr_state, dtype=torch.float32)
     
@@ -85,7 +90,7 @@ class RealAgent(main.Agent):
         for i in range(self.model.n):
             if acts[i] == 1:
                 if int(qtys[i].item()) * self.production_costs[self._resource_list[i]] > self.balance:
-                    self.curr_penalty += int(qtys[i].item()) * self.production_costs[self._resource_list[i]] - self.balance
+                    self.curr_penalty += 10
                     continue
                 produces[self._resource_list[i]] = int(qtys[i].item())
 
@@ -142,11 +147,11 @@ class RealAgent(main.Agent):
                 
                 if side == "bid":
                     if prices[i].item() > self.balance:
-                        self.curr_penalty += prices[i].item() - self.balance
+                        self.curr_penalty += 10
                         continue
                 if side == "ask":
                     if qtys[i].item() > self.inventory[self._resource_list[i]]:
-                        self.curr_penalty += qtys[i].item() - self.inventory[self._resource_list[i]]
+                        self.curr_penalty += 10
                         continue
                 orders.append(main.Order(self.id,self._resource_list[i],side,int(qtys[i].round().item()),prices[i].item()))
         return orders
@@ -159,7 +164,7 @@ class RealAgent(main.Agent):
         if self.balance < self.min_requirement:
             self.alive = False
             self.buffer["dones"].append(1)
-            self.curr_reward = -100000 
+            self.curr_reward = -1000 
             self.buffer["rewards"].append(self.curr_reward)
             return 
 
@@ -167,8 +172,8 @@ class RealAgent(main.Agent):
         for resource in self.inventory:
             net_worth += self.inventory[resource] * self._last_avg_prices[resource]
 
-        self.curr_reward = net_worth - self.prev_net_worth
-        self.curr_reward -= self.curr_penalty
+        self.curr_reward = (net_worth - self.prev_net_worth) / 100
+        self.curr_reward -= self.curr_penalty / 100
         self.prev_net_worth = net_worth
         self.curr_penalty = 0
         self.buffer["rewards"].append(self.curr_reward)
@@ -249,6 +254,7 @@ class RealAgent(main.Agent):
             loss = policy_loss + 0.5 * value_loss
             self.optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
             self.optimizer.step()
 
         for k in self.buffer:
@@ -283,14 +289,14 @@ def build_agents(n_agents, n_resources, resource_types):
         costs = {}
         for r in resources_list:
             if r == cheap_resource:
-                costs[r] = 1.0   # cheap
+                costs[r] = 100.0   # cheap
             else:
-                costs[r] = 5.0   # average
+                costs[r] = 400.0   # average
         production_costs_per_agent[agent_id] = costs
         inventories[agent_id] = dict(starting_inventory)
         balances[agent_id] = 1000.0
-    initial_prices = {r: 50.0 for r in resources_list}
-    initial_volumes = {r: 0 for r in resources_list}
+    initial_prices = {"gold":200.0, "silver":100.0, "wood":10.0, "coal":20.0, "oil":50.0}
+    initial_volumes = {"gold":10, "silver":20, "wood":500, "coal":100, "oil":50}
 
     agents = []
     for i in range(n_agents):
@@ -316,7 +322,7 @@ def reset_agents(agents, balances, inventories, avg_price_per_resource, volume_t
 
 
 async def train_loop():
-    n_epochs = 100
+    n_epochs = 1000
     n_agents = 5
     n_resources = 5
     resource_types = {"gold", "silver", "wood", "coal", "oil"}
@@ -327,7 +333,7 @@ async def train_loop():
     net_worth = 1000.0 + 10*50.0*n_agents
     for _ in range(n_epochs):
         reset_agents(agents, balances, inventories, initial_prices, initial_volumes, net_worth)
-        economy = Economy(agents, resource_types, tick_count=100, seed=42, cost_of_living=10.0, avg_price_per_resource=initial_prices, volume_traded_per_resource=initial_volumes)
+        economy = Economy(agents, resource_types, tick_count=10000, seed=42, cost_of_living=10.0, avg_price_per_resource=initial_prices, volume_traded_per_resource=initial_volumes)
         result = await economy.run()
         print(result.inventories)
         print(result.balances)
