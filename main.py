@@ -55,22 +55,21 @@ class Agent(ABC):
         pass
 
 class SimulationResult:
-    def __init__(self,inventories: dict[str,dict[str:int]], balances: dict[str,float], production_per_resource: dict[str,int], trade_volume_per_resource: dict[str,int], ticks: int):
+    def __init__(self,inventories: dict[str,dict[str:int]], balances: dict[str,float], avg_price_per_resource: dict[str,int], avg_volume_per_resource: dict[str,int], ticks: int):
         self.ticks = ticks
         self.inventories = inventories
         self.balances = balances
-        self.trade_volume_per_resource = trade_volume_per_resource
-        self.production_per_resource = production_per_resource
-
+        self.avg_price_per_resource = avg_price_per_resource
+        self.avg_volume_per_resource = avg_volume_per_resource
+        
 class Economy:
-    def __init__(self,agents: list[Agent],resource_types: set[str], tick_count: int, seed: int, cost_of_living: float, avg_price_per_resource: dict[str:float], volume_traded_per_resource: dict[str:int], timeout_seconds: Optional[float] = None):
+    def __init__(self,agents: list[Agent],resource_types: set[str], tick_count: int, seed: int, avg_price_per_resource: dict[str:float], volume_traded_per_resource: dict[str:int], timeout_seconds: Optional[float] = None):
         self.agents = agents
         self.all_agents = agents
         self.resource_types = resource_types
         self.tick_count = tick_count
         self.seed = seed 
         self.timeout_seconds = timeout_seconds
-        self.cost_of_living = cost_of_living
 
         self.avg_price_per_resource = avg_price_per_resource
         self.volume_traded_per_resource = volume_traded_per_resource

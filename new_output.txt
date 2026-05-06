@@ -1,0 +1,90 @@
+0
+
+prices | gold:0.49  silver:0.72  wood:0.87  coal:0.68  oil:0.74
+A | bal   -5.19 | gold:19  silver:16  wood:9  coal:32  oil:14
+B | bal   23.01 | gold:26  silver:7  wood:10  coal:16  oil:8
+C | bal   48.44 | gold:11  silver:12  wood:59  coal:25  oil:6
+D | bal    7.47 | gold:3  silver:3  wood:103  coal:58  oil:52
+E | bal   36.26 | gold:14  silver:18  wood:7  coal:5  oil:7
+
+100
+
+prices | gold:10.18  silver:0.92  wood:11.34  coal:1.62  oil:5.92
+A | bal   14.06 | gold:688  silver:289  wood:593  coal:227  oil:661
+B | bal   44.41 | gold:719  silver:585  wood:850  coal:352  oil:266
+C | bal   44.03 | gold:559  silver:586  wood:0  coal:1  oil:1313
+D | bal   49.48 | gold:765  silver:246  wood:453  coal:985  oil:453
+E | bal   48.01 | gold:0  silver:434  wood:607  coal:577  oil:26
+
+200
+
+prices | gold:0.89  silver:12.90  wood:0.35  coal:2.19  oil:0.18
+A | bal   47.09 | gold:760  silver:1157  wood:884  coal:427  oil:0
+B | bal   40.16 | gold:1309  silver:2228  wood:757  coal:197  oil:2357
+C | bal   37.54 | gold:653  silver:1626  wood:0  coal:0  oil:3122
+D | bal   47.92 | gold:994  silver:0  wood:1076  coal:1702  oil:550
+E | bal   47.29 | gold:0  silver:27  wood:910  coal:869  oil:0
+
+300
+
+prices | gold:0.52  silver:0.70  wood:2.58  coal:2.34  oil:0.18
+A | bal   44.35 | gold:808  silver:2223  wood:1431  coal:710  oil:0
+B | bal   48.30 | gold:1063  silver:3729  wood:7  coal:304  oil:4402
+C | bal   40.15 | gold:876  silver:0  wood:0  coal:0  oil:3636
+D | bal   40.01 | gold:2074  silver:0  wood:2269  coal:1534  oil:15
+E | bal   47.18 | gold:0  silver:46  wood:2340  coal:1672  oil:1
+
+400
+
+prices | gold:0.25  silver:2.98  wood:0.00  coal:9.34  oil:0.20
+A | bal   48.29 | gold:959  silver:2667  wood:1663  coal:907  oil:0
+B | bal   46.97 | gold:0  silver:4358  wood:310  coal:840  oil:7175
+C | bal   41.36 | gold:415  silver:0  wood:0  coal:1  oil:4156
+D | bal   -6.93 | gold:4124  silver:1  wood:2273  coal:703  oil:38
+E | bal   20.31 | gold:1  silver:24  wood:3551  coal:3115  oil:3
+
+500
+
+prices | gold:13.24  silver:0.57  wood:31.59  coal:4.21  oil:0.41
+A | bal   43.49 | gold:975  silver:3406  wood:2096  coal:280  oil:0
+B | bal   41.40 | gold:1  silver:4594  wood:672  coal:1515  oil:10001
+C | bal   48.05 | gold:0  silver:1  wood:0  coal:215  oil:3312
+D | bal   47.18 | gold:4983  silver:0  wood:1169  coal:717  oil:15
+E | bal   49.88 | gold:0  silver:10  wood:4683  coal:4843  oil:0
+
+600
+
+prices | gold:5.34  silver:3.39  wood:2.64  coal:13.34  oil:0.21
+A | bal   42.60 | gold:1038  silver:3865  wood:2137  coal:16  oil:1
+B | bal   41.17 | gold:4  silver:4941  wood:2002  coal:2090  oil:14097
+C | bal   48.21 | gold:0  silver:3  wood:0  coal:4  oil:1
+D | bal   43.62 | gold:5495  silver:4  wood:29  coal:1  oil:471
+E | bal    4.41 | gold:0  silver:227  wood:5670  coal:6643  oil:1
+
+700
+
+prices | gold:16.32  silver:169.04  wood:152.38  coal:21.45  oil:0.71
+A | bal   42.27 | gold:1104  silver:4084  wood:1948  coal:14  oil:0
+B | bal   41.88 | gold:0  silver:5522  wood:2353  coal:2984  oil:13496
+C | bal   40.51 | gold:987  silver:246  wood:0  coal:302  oil:0
+D | bal   43.40 | gold:5386  silver:0  wood:11  coal:1  oil:2056
+E | bal   41.95 | gold:0  silver:262  wood:6168  coal:7832  oil:0
+
+800
+
+prices | gold:0.06  silver:0.03  wood:111.47  coal:8.94  oil:0.20
+A | bal   43.17 | gold:1135  silver:4381  wood:2061  coal:204  oil:2
+B | bal   -0.84 | gold:1  silver:2729  wood:1897  coal:3936  oil:284
+C | bal   40.94 | gold:1689  silver:4109  wood:0  coal:451  oil:8
+D | bal   49.36 | gold:4755  silver:0  wood:262  coal:578  oil:16171
+E | bal   47.37 | gold:0  silver:2  wood:7483  coal:7723  oil:0
+
+900
+
+prices | gold:0.26  silver:11.94  wood:138.87  coal:0.01  oil:203.97
+A | bal   40.00 | gold:1187  silver:4562  wood:2225  coal:516  oil:0
+B | bal   41.70 | gold:1  silver:18  wood:794  coal:5305  oil:1799
+C | bal   45.78 | gold:5661  silver:7035  wood:0  coal:189  oil:1
+D | bal   48.50 | gold:966  silver:0  wood:474  coal:2051  oil:15200
+E | bal   44.02 | gold:0  silver:8  wood:9019  coal:6481  oil:1
+

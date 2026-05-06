@@ -10,13 +10,96 @@ Most RL projects benchmark a single agent against a fixed environment. This one 
  
 The simulation has been run across a wide range of initial conditions, and the same kinds of emergent behavior keep showing up. That's the interesting part.
  
+## Sample output
+ 
+The training loop prints a summary of each episode after the simulation completes. Here's what one of those summaries looks like, and what the numbers mean.
+ 
+The format per episode is:
+ 
+```
+<episode number>
+ 
+prices | gold:<avg>  silver:<avg>  wood:<avg>  coal:<avg>  oil:<avg>
+A | bal <balance> | gold:<qty>  silver:<qty>  wood:<qty>  coal:<qty>  oil:<qty>
+B | bal <balance> | gold:<qty>  silver:<qty>  wood:<qty>  coal:<qty>  oil:<qty>
+...
+```
+ 
+The `prices` line shows the average traded price per resource across the entire episode. The per-agent lines show each agent's final cash balance and inventory. Resources are abstract — `gold`, `silver`, `wood`, `coal`, `oil` are just names for five distinguishable goods. The numbers below have nothing to do with real-world prices for those materials. Treat them as arbitrary commodities that happen to have memorable labels.
+ 
+### Episode 0 — random behavior, no learning yet
+ 
+```
+prices | gold:0.49  silver:0.72  wood:0.87  coal:0.68  oil:0.74
+A | bal   -5.19 | gold:19   silver:16   wood:9    coal:32   oil:14
+B | bal   23.01 | gold:26   silver:7    wood:10   coal:16   oil:8
+C | bal   48.44 | gold:11   silver:12   wood:59   coal:25   oil:6
+D | bal    7.47 | gold:3    silver:3    wood:103  coal:58   oil:52
+E | bal   36.26 | gold:14   silver:18   wood:7    coal:5    oil:7
+```
+ 
+At the start, the agents act essentially at random. Inventories barely budge from their starting values, balances are noisy, and traded prices are fractional because the few trades that happen are mostly random small bids and asks at near-zero prices. There's no structure yet.
+ 
+### Episode 500 — strategies forming
+ 
+```
+prices | gold:13.24  silver:0.57  wood:31.59  coal:4.21  oil:0.41
+A | bal   43.49 | gold:975   silver:3406  wood:2096  coal:280   oil:0
+B | bal   41.40 | gold:1     silver:4594  wood:672   coal:1515  oil:10001
+C | bal   48.05 | gold:0     silver:1     wood:0     coal:215   oil:3312
+D | bal   47.18 | gold:4983  silver:0     wood:1169  coal:717   oil:15
+E | bal   49.88 | gold:0     silver:10    wood:4683  coal:4843  oil:0
+```
+ 
+By the midpoint of training, distinct strategies have emerged. Agent D has gone heavy into gold (4,983 units). Agent B is dominating oil. Agent E has accumulated a massive wood and coal stockpile. The market has discovered that some resources are abundant (silver near 0.57, oil near 0.41) and some are scarce (wood at 31.59). Balances are clustered near 50 because cost-of-living is steadily eating into everyone's cash, but the agents have all figured out how to produce and trade enough to stay alive.
+ 
+### Episode 900 — convergence
+ 
+```
+prices | gold:0.26  silver:11.94  wood:138.87  coal:0.01  oil:203.97
+A | bal   40.00 | gold:1187  silver:4562  wood:2225  coal:516   oil:0
+B | bal   41.70 | gold:1     silver:18    wood:794   coal:5305  oil:1799
+C | bal   45.78 | gold:5661  silver:7035  wood:0     coal:189   oil:1
+D | bal   48.50 | gold:966   silver:0     wood:474   coal:2051  oil:15200
+E | bal   44.02 | gold:0     silver:8     wood:9019  coal:6481  oil:1
+```
+ 
+By the end, the specialization is sharp. Each agent has carved out a niche:
+ 
+- **Agent A** — the silver/wood specialist, with diversified secondary holdings
+- **Agent B** — coal-heavy with notable oil reserves
+- **Agent C** — the gold and silver baron, holding 5,661 gold and 7,035 silver, but almost nothing else
+- **Agent D** — the runaway oil king, with 15,200 units of oil
+- **Agent E** — the wood and coal supplier with the largest single inventory in the simulation (9,019 wood)
+The prices reflect this concentration. Wood is at 138.87 because it's clearly in demand, oil is at 203.97 because D has the leverage of a near-monopoly. Coal is essentially worthless (0.01) because two agents have flooded the market with it.
+ 
+This isn't designed in. The training loop doesn't reward "specialization" — it just rewards balance growth. The agents discover that specializing in their own cheap-to-produce resource and trading for everything else is the dominant strategy. Comparative advantage emerges from gradient descent.
+ 
+### A note on the prices
+ 
+The traded prices aren't meant to be realistic. They're whatever the agents converge to as a function of supply, demand, and the policy noise that PPO maintains for exploration. Resource names are arbitrary labels — the simulation has no notion that "gold" is more valuable than "wood" in the real world. What matters is the relative scarcity each agent's policy creates and the network of trades that results.
+ 
+## Initial conditions
+ 
+The example output above comes from a five-agent, five-resource setup with these starting parameters (all configured in `example_sim.py`):
+ 
+- **Production costs**: each agent has one "cheap" resource (cost = 100) and four "expensive" resources (cost = 200). Cheap-resource assignments cycle through the agents — A gets coal cheap, B gets gold cheap, C gets oil cheap, D gets silver cheap, E gets wood cheap. This is the heterogeneity that drives specialization.
+- **Starting inventories**: hand-picked per agent so each starts with a different distribution. A few have surplus wood, others have more coal or gold, etc.
+- **Starting balance**: 5,000 per agent
+- **Cost of living**: 10 per tick (every agent loses 10 cash per tick as a survival cost)
+- **Min survival balance**: 50 (any agent below this dies and is removed)
+- **Initial market prices**: gold 200, silver 100, wood 10, coal 20, oil 50 (these are just seed values for the agents' first observations — actual traded prices diverge immediately)
+- **Tick count**: 100,000 ticks per episode
+- **Episodes**: 1,000 training episodes
+You can change any of these. Want a single dominant producer surrounded by traders? Give one agent low costs across the board. Want scarcity-driven dynamics? Start with low inventories and high cost of living. The setup is data, not code.
+ 
 ## What's emergent about it
  
-The configuration is fully parameterized. You can hand the system any number of agents, any number of resources, any pattern of production costs across agents, any starting balances, any initial prices. None of these are baked into the agent's policy. Yet across configurations, recognizable economic behaviors emerge:
+Across configurations, recognizable economic behaviors keep showing up:
  
-**Specialization.** When agents have heterogeneous production costs — some agents cheap at one resource, expensive at others — they reliably converge to producing what they're best at. The reward signal never says "produce your cheap resource." It just says "wealth is good." The agents figure out the rest, because producing your expensive resources and trying to compete in the market for them is dominated by producing your cheap resources and trading.
+**Specialization.** When agents have heterogeneous production costs, they reliably converge to producing what they're best at. The reward signal never says "produce your cheap resource." It just says "wealth is good." The agents figure out the rest, because producing your expensive resources and competing for them in the market is dominated by producing your cheap ones and trading.
  
-**Comparative advantage in action.** Even when one agent is cheaper than another at every resource, both still benefit from trade. The agents learn this. The "less efficient" agent still finds a profitable niche by focusing on its *least disadvantaged* resource. This is Ricardian comparative advantage emerging from gradient descent.
+**Comparative advantage in action.** Even when one agent is cheaper than another at every resource, both still benefit from trade. The agents learn this. The "less efficient" agent finds a profitable niche by focusing on its *least disadvantaged* resource. This is Ricardian comparative advantage emerging from gradient descent.
  
 **Price discovery.** With no central price-setter, prices stabilize around production costs plus a margin. When supply of a resource is high, its price drops; when demand spikes, prices rise. Volatility decreases as agents' policies stabilize. The market clears.
  
@@ -124,8 +207,6 @@ Everything is parameterized. You hand `build_agents` and `train_loop` whatever y
 - Minimum survival balance
 - Tick count per episode
 - Number of training episodes
-Want a five-agent economy with one specialist per resource? Set up the production costs that way. Want a single dominant producer surrounded by traders? Give one agent low costs across the board and the rest high costs. Want scarcity-driven dynamics? Start with low initial inventories and high cost of living. The setup is data, not code.
- 
 ## Repository layout
  
 ```
@@ -149,7 +230,7 @@ pip install torch
 python example_sim.py
 ```
  
-Each episode prints final inventories and balances. Watching these evolve across episodes is the most direct way to see learning happen.
+Each episode prints final balances, inventories, and the average traded price per resource. Watching these evolve across episodes is the most direct way to see learning happen.
  
 ## Design decisions worth flagging
  

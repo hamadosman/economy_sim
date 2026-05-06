@@ -21,7 +21,8 @@ class RealAgent(main.Agent):
         cost_of_living: float,
         avg_price_per_resource: dict[str, float],
         volume_traded_per_resource: dict[str, int],
-        prev_net_worth: float
+        prev_net_worth: float,
+        tick_count: int
     ):
         super().__init__(agent_id, inventory, balance, production_costs, cost_of_living)
         self._resource_list = sorted(resource_names)
@@ -34,6 +35,7 @@ class RealAgent(main.Agent):
         self.alive = True
         self.min_requirement = min_requirement
         self.prev_net_worth = prev_net_worth
+        self.tick_count = tick_count
 
         self.buffer = {}
         self.buffer["obs"] = []
@@ -161,19 +163,22 @@ class RealAgent(main.Agent):
         self.last_volume_traded_per_resource = dict(volume_traded_per_resource)
         self.balance -= self.cost_of_living
 
+            
         if self.balance < self.min_requirement:
             self.alive = False
             self.buffer["dones"].append(1)
-            self.curr_reward = -1000 
+            self.curr_reward = -100
             self.buffer["rewards"].append(self.curr_reward)
             return 
 
         net_worth = self.balance 
-        for resource in self.inventory:
-            net_worth += self.inventory[resource] * self._last_avg_prices[resource]
+        #for resource in self.inventory:
+        #    net_worth += self.inventory[resource] * self._last_avg_prices[resource]
 
-        self.curr_reward = (net_worth - self.prev_net_worth) / 100
-        self.curr_reward -= self.curr_penalty / 100
+        self.curr_reward = (net_worth - self.prev_net_worth) / 100.0
+        self.curr_reward -= self.curr_penalty / 100.0
+        weight = tick_idx / self.tick_count
+        self.curr_reward = self.curr_reward * weight
         self.prev_net_worth = net_worth
         self.curr_penalty = 0
         self.buffer["rewards"].append(self.curr_reward)
@@ -277,12 +282,18 @@ def build_agents(n_agents, n_resources, resource_types):
 
     resources_list = sorted(resource_types)  # deterministic order
     production_costs_per_agent = {}
-    starting_inventory = {r: 10 for r in resources_list}
+    starting_inventories = [
+    {"gold": 10, "silver": 7, "wood": 5, "coal": 30, "oil": 10},
+    {"gold": 20, "silver": 0, "wood": 3, "coal": 10, "oil": 10},
+    {"gold": 6, "silver": 10, "wood": 50, "coal": 20, "oil": 0},
+    {"gold": 0, "silver": 0, "wood": 100, "coal": 50, "oil": 50},
+    {"gold": 10, "silver": 10, "wood": 0, "coal": 0, "oil": 0},
+]
     balances = {}
     inventories = {}
     cost_of_living = 10.0
-    min_requirement = 100.0
-    net_worth = 1000.0 + 10*50.0*n_agents
+    min_requirement = 50.0
+    net_worth = 5000.0
     for i in range(n_agents):
         agent_id = chr(ord("A") + i)
         cheap_resource = resources_list[i % len(resources_list)]
@@ -291,17 +302,17 @@ def build_agents(n_agents, n_resources, resource_types):
             if r == cheap_resource:
                 costs[r] = 100.0   # cheap
             else:
-                costs[r] = 400.0   # average
+                costs[r] = 200.0   # average
         production_costs_per_agent[agent_id] = costs
-        inventories[agent_id] = dict(starting_inventory)
-        balances[agent_id] = 1000.0
-    initial_prices = {"gold":200.0, "silver":100.0, "wood":10.0, "coal":20.0, "oil":50.0}
-    initial_volumes = {"gold":10, "silver":20, "wood":500, "coal":100, "oil":50}
+        inventories[agent_id] = starting_inventories[i]
+        balances[agent_id] = 5000.0
+    initial_prices = {"gold":100.0, "silver":90.0, "wood":10.0, "coal":20.0, "oil":50.0}
+    initial_volumes = {"gold":0, "silver":0, "wood":0, "coal":0, "oil":0}
 
     agents = []
     for i in range(n_agents):
         agent_id = chr(ord("A") + i)
-        balance = 1000.0
+        balance = 5000.0
         agents.append(RealAgent(
             agent_id,
             inventories[agent_id],
@@ -312,7 +323,8 @@ def build_agents(n_agents, n_resources, resource_types):
             cost_of_living,
             initial_prices,
             initial_volumes,
-            prev_net_worth=net_worth
+            prev_net_worth=net_worth,
+            tick_count=100000
         ))
     return inventories, balances, agents
 
@@ -328,15 +340,24 @@ async def train_loop():
     resource_types = {"gold", "silver", "wood", "coal", "oil"}
     resources_list = sorted(list(resource_types))  # deterministic order
     inventories, balances, agents = build_agents(n_agents, n_resources, resource_types)
-    initial_prices = {r: 50.0 for r in resources_list}
-    initial_volumes = {r: 0 for r in resources_list}
-    net_worth = 1000.0 + 10*50.0*n_agents
+    initial_prices = {"gold":200.0, "silver":100.0, "wood":10.0, "coal":20.0, "oil":50.0}
+    initial_volumes = {"gold":0, "silver":0, "wood":0, "coal":0, "oil":0}
+    net_worth = 5000.0
     for _ in range(n_epochs):
         reset_agents(agents, balances, inventories, initial_prices, initial_volumes, net_worth)
-        economy = Economy(agents, resource_types, tick_count=10000, seed=42, cost_of_living=10.0, avg_price_per_resource=initial_prices, volume_traded_per_resource=initial_volumes)
+        economy = Economy(agents, resource_types, tick_count=100000, seed=42, avg_price_per_resource=initial_prices, volume_traded_per_resource=initial_volumes)
         result = await economy.run()
-        print(result.inventories)
-        print(result.balances)
+        print(_)
+        print()
+        prices = result.avg_price_per_resource
+        price_str = "  ".join(f"{r}:{p:.2f}" for r, p in prices.items())
+        print(f"prices | {price_str}")
+        for agent_id in result.balances:
+            inv = result.inventories[agent_id]
+            inv_str = "  ".join(f"{r}:{q}" for r, q in inv.items())
+            print(f"{agent_id} | bal {result.balances[agent_id]:7.2f} | {inv_str}")
+        print()
+
         await asyncio.gather(*[agent.train() for agent in agents])
 
 if __name__ == "__main__":
